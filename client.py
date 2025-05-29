@@ -14,7 +14,7 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
     print("Matriz A criada")
     B = Matrix.random(p, n)
     print("Matriz B criada")
-    submatrix_count = 4
+    submatrix_count = n_hosts if n_hosts < m else m
 
     print("Criando submatrizes")
     submatrix_size = A.rows // submatrix_count
@@ -38,6 +38,8 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
     ]
     print("Multiplicando submatrizes")
     responses = grequests.map(responses)
+    if any(response is None for response in responses):
+        raise RuntimeError("Alguma requisição falhou. Verifique os servidores.")
     print("Submatrizes multiplicadas")
     print(responses)
     result = Matrix(A.rows, B.cols)
@@ -57,10 +59,26 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    m = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-    p = int(sys.argv[2]) if len(sys.argv) > 2 else 100
-    n = int(sys.argv[3]) if len(sys.argv) > 3 else 100
+    parser = argparse.ArgumentParser(description="Cliente para multiplicação distribuída de matrizes.")
+    parser.add_argument("m", type=int, default=100, help="Número de linhas da matriz A.")
+    parser.add_argument("p", type=int, default=100, help="Número de colunas da matriz A e linhas da matriz B.")
+    parser.add_argument("n", type=int, default=100, help="Número de colunas da matriz B.")
+    parser.add_argument("--hosts", type=int, default=2, help="Número de hosts para distribuir a multiplicação.")
+    parser.add_argument("--base-url", type=str, default="http://localhost", help="URL base dos servidores.")
+    parser.add_argument("--port-start", type=int, default=5000, help="Porta base para os servidores.")
 
-    main(2, m=m, p=p, n=n)
+    args = parser.parse_args()
+
+    m = args.m
+    p = args.p
+    n = args.n
+    n_hosts = args.hosts
+    base_url = args.base_url
+    if n_hosts < 1:
+        raise ValueError("O número de hosts deve ser pelo menos 1.")
+    if m < 1 or p < 1 or n < 1:
+        raise ValueError("As dimensões das matrizes devem ser pelo menos 1.")
+
+    main(n_hosts=n_hosts, base_url=base_url, m=m, p=p, n=n)
