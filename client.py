@@ -1,4 +1,5 @@
 from itertools import cycle
+from time import monotonic
 import grequests
 from matrix import Matrix
 
@@ -23,6 +24,9 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
     for m in range(submatrix_count):
         for i in range(submatrix_size):
             for j in range(A.cols):
+                # Calcula o índice da linha em A correspondente à linha i da submatriz m.
+                # Multiplica-se m pelo tamanho de cada submatriz para pular as linhas já distribuídas
+                # e soma-se i para acessar a linha específica dentro do bloco atual.
                 submatrices[m][i][j] = A[m * submatrix_size + i][j]
     print("Submatrizes criadas")
 
@@ -37,7 +41,10 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
         ) for i in range(submatrix_count)
     ]
     print("Multiplicando submatrizes")
+    a = monotonic()
     responses = grequests.map(responses)
+    b = monotonic()
+    print(f"Multiplicação distribuída levou {b - a:.4f} segundos")
     if any(response is None for response in responses):
         raise RuntimeError("Alguma requisição falhou. Verifique os servidores.")
     print("Submatrizes multiplicadas")
@@ -47,15 +54,21 @@ def main(n_hosts, base_url="http://localhost", m=100, p=100, n=100):
     assert result.rows == A.rows
     assert result.cols == B.cols
 
+    print("Construindo matriz resultado")
+
     for m in range(submatrix_count):
         for i in range(submatrix_size):
             for j in range(B.cols):
                 result[m * submatrix_size + i][j] = responses[m].json()['result'][i][j]
 
+    print("Multiplicando localmente")
+    a = monotonic()
     C = A * B
+    b = monotonic()
+    print(f"Multiplicação local levou {b - a:.4f} segundos")
     assert C == result, "Os resultados da multiplicação não são iguais!"
 
-    print(result)
+    # print(result)
 
 
 if __name__ == "__main__":
